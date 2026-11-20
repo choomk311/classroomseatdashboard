@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Classroom Seating Chart</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--bg:#FAF8F5;--linen:#F3EFEA;--line:#E6E0D6;--green:#1E4D3B;--terra:#D97736;--sage:#E6F0EC;--ink:#1F2421;--slate:#5C635E;--dash:#D5CEC2}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.45 Inter,system-ui,sans-serif;display:flex;flex-direction:column}
+h1,h2,h3,h4{font-family:'Plus Jakarta Sans',Inter,sans-serif;margin:0}
+button,select,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 16px;background:#fff;border-bottom:1px solid var(--line)}
+.bar .sp{flex:1}
+.btn,select.btn{background:#fff;border:1px solid var(--line);border-radius:10px;padding:7px 12px;cursor:pointer;font-weight:500}
+.btn:hover{background:var(--linen)}
+.btn.pri{background:var(--green);border-color:var(--green);color:#fff}
+.btn.pri:hover{background:#17402F}
+#cls{font-family:'Plus Jakarta Sans';font-weight:700;font-size:15px;max-width:230px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{border:0;background:#fff;padding:7px 12px;cursor:pointer}
+.seg button.on{background:var(--sage);color:var(--green);font-weight:600}
+.main{flex:1;min-height:0;display:flex;position:relative}
+.drawer{width:300px;flex:none;background:#fff;border-right:1px solid var(--line);display:flex;flex-direction:column;padding:14px;gap:12px;overflow:hidden}
+.drawer.closed{display:none}
+.tabs{display:flex;gap:4px;background:var(--linen);padding:3px;border-radius:10px}
+.tabs button{flex:1;border:0;background:none;border-radius:8px;padding:6px;cursor:pointer;color:var(--slate)}
+.tabs button.on{background:#fff;color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+textarea{width:100%;height:96px;resize:vertical;border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--bg)}
+.drop{border:1.5px dashed var(--dash);border-radius:12px;padding:22px 10px;text-align:center;color:var(--slate);cursor:pointer;background:var(--bg)}
+.drop.over{border-color:var(--green);background:var(--sage)}
+.mut{color:var(--slate);font-size:13px;margin:0}
+input[type=search]{width:100%;border:1px solid var(--line);border-radius:10px;padding:7px 10px;background:var(--bg)}
+.hd{display:flex;justify-content:space-between;align-items:baseline}
+#pool{flex:1;overflow:auto;display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start;padding:2px}
+.chip,.tag{background:#EEE9E0;border:1px solid #DDD5C6;-webkit-print-color-adjust:exact;print-color-adjust:exact;border-radius:999px;padding:5px 11px;font-weight:500;cursor:grab;display:inline-flex;gap:6px;align-items:center;user-select:none}
+.chip small,.tag small{color:var(--slate);font-weight:400;font-size:11px}
+.chip.g-M,.tag.g-M{background:#FCE9A0;border-color:#E9CE62}
+.chip.g-F,.tag.g-F{background:#BFE5CD;border-color:#8CC9A5}
+.chip.sel,.tag.sel{outline:2px solid var(--ink);outline-offset:1px}
+.canvas{flex:1;overflow:auto;padding:24px 20px 60px;background-color:var(--linen);background-image:radial-gradient(#D9D1C4 1px,transparent 1px);background-size:20px 20px}
+.board{width:fit-content;margin:0 auto;display:flex;flex-direction:column;gap:22px}
+.board.flip{flex-direction:column-reverse}
+.wb{background:var(--terra);color:#fff;text-align:center;border-radius:12px;padding:11px;font:700 14px 'Plus Jakarta Sans';letter-spacing:.02em;box-shadow:0 2px 0 #B85F26}
+.grid{display:grid;gap:10px;justify-content:center}
+.board.flip .grid,.board.flip .desk{transform:rotate(180deg)}
+.desk{background:#fff;border:1px solid var(--line);border-radius:12px;padding:6px;display:flex;align-items:center;justify-content:center;position:relative;min-width:0;transition:border-color .15s,background .15s}
+.desk.empty{background:rgba(255,255,255,.55);border:1.5px dashed var(--dash)}
+.desk.over{border-color:var(--green);background:var(--sage)}
+.no{position:absolute;top:4px;left:8px;font-size:10px;color:var(--slate);font-variant-numeric:tabular-nums}
+.hint{font-size:11px;color:#9A9488}
+.tag{border-radius:8px;width:100%;padding:5px 6px;margin-top:8px;font-size:13px}
+.tag .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.grip{color:#8FA89D;letter-spacing:-2px;font-size:11px}
+.x{border:0;background:none;color:inherit;cursor:pointer;opacity:0;font-size:16px;line-height:1;padding:0 2px}
+.tag:hover .x,.x:focus-visible{opacity:.8}
+@media(hover:none){.x{opacity:.7}}
+#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:9px 16px;border-radius:999px;font-size:13px;display:none;z-index:50;max-width:90vw}
+dialog{border:1px solid var(--line);border-radius:16px;padding:0;width:min(560px,94vw);max-height:88vh;color:var(--ink)}
+dialog::backdrop{background:rgba(31,36,33,.35)}
+#dbody{padding:20px;display:flex;flex-direction:column;gap:12px}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.row select{flex:1;min-width:110px;border:1px solid var(--line);border-radius:8px;padding:6px;background:#fff}
+ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+li{display:flex;justify-content:space-between;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+li button{border:0;background:none;cursor:pointer;font-size:16px;color:var(--slate)}
+table{width:100%;border-collapse:collapse}
+td{padding:4px 4px;border-top:1px solid var(--line)}
+td select{border:1px solid var(--line);border-radius:6px;padding:3px;background:#fff}
+.num{width:62px;border:1px solid var(--line);border-radius:10px;padding:7px 8px;background:#fff}
+.lbl{display:flex;align-items:center;gap:6px;color:var(--slate);font-size:13px}
+.ttl{text-align:center;margin:0 auto 18px}.ttl h2{font-size:22px}
+#vn{font:600 15px 'Plus Jakarta Sans';color:var(--green);margin:2px 0 8px}
+.legend{display:flex;gap:14px;justify-content:center;font-size:12px;color:var(--slate)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:4px;margin-right:5px;vertical-align:-2px;border:1px solid rgba(0,0,0,.15)}
+.tips{max-width:640px;margin:24px auto 0;background:#fff;border:1px solid var(--line);border-left:4px solid var(--terra);border-radius:12px;padding:14px 16px}
+.tips ul{display:block;list-style:disc;padding-left:18px;margin-top:6px}
+.tips li{display:list-item;background:none;border:0;padding:2px 0}
+.chk{display:flex;flex-wrap:wrap;gap:6px 14px;max-height:120px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--bg)}
+.chk label{display:flex;gap:4px;align-items:center}
+@media(max-width:800px){.drawer{position:absolute;inset:0 auto 0 0;z-index:20;box-shadow:6px 0 24px rgba(0,0,0,.15)}.bar .sp{display:none}}
+@media print{.bar,.drawer,#toast,.tips{display:none!important}body,.canvas{background:#fff;overflow:visible}.canvas{background-image:none}.wb{-webkit-print-color-adjust:exact;print-color-adjust:exact}.x{display:none}}
+</style>
+</head>
+<body>
+<header class="bar">
+  <button class="btn" id="menu" aria-label="Toggle roster">☰ Roster</button>
+  <select id="cls" class="btn" aria-label="Class"></select>
+  <select id="tpl" class="btn" aria-label="Classroom layout">
+    <option value="rows">Rows</option><option value="pairs">Pairs</option><option value="pods">Pods of 4</option><option value="u">U-Shape</option>
+  </select>
+  <label class="lbl">Rows <input class="num" type="number" id="rws" min="1" max="50"></label>
+  <label class="lbl">Columns <input class="num" type="number" id="colsn" min="1" max="50"></label>
+  <span class="mut" id="seatn"></span>
+  <input class="num" id="venue" maxlength="24" placeholder="Venue, e.g. D1-04" style="width:160px" aria-label="Venue">
+  <span class="sp"></span>
+  <div class="seg" role="group" aria-label="View mode"><button id="vt" class="on">Teacher view</button><button id="vs">Student board</button></div>
+  <button class="btn" id="rules">Rules</button>
+  <button class="btn pri" id="auto">Auto-assign</button>
+  <button class="btn" id="clear">Clear seats</button>
+  <button class="btn" id="print">Export / Print PDF</button>
+</header>
+<div class="main">
+  <aside class="drawer" id="drawer">
+    <div class="tabs"><button id="tp" class="on">Paste names</button><button id="tu">Upload Excel/CSV</button></div>
+    <div id="paneP">
+      <textarea id="paste" placeholder="One name per line.&#10;Optional: Name, F, 160"></textarea>
+      <button class="btn pri" id="addp" style="width:100%;margin-top:8px">Add to roster</button>
+    </div>
+    <div id="paneU" style="display:none">
+      <div class="drop" id="drop" tabindex="0">Drop a .xlsx or .csv here<br>or click to browse<p class="mut" style="margin-top:6px">Columns: name, gender, height (cm). Only name is required.</p></div>
+      <input type="file" id="file" accept=".xlsx,.xls,.csv" hidden>
+    </div>
+    <div class="hd"><h3 id="cnt" style="font-size:15px"></h3></div>
+    <p class="mut" id="gh"></p>
+    <input type="search" id="q" placeholder="Search students" aria-label="Search students">
+    <div id="pool"></div>
+  </aside>
+  <section class="canvas" id="canvas"><div class="ttl"><h2 id="ttl"></h2><div id="vn"></div><div class="legend"><span><i style="background:#FCE9A0"></i>Boys</span><span><i style="background:#BFE5CD"></i>Girls</span><span><i style="background:#EEE9E0"></i>Not set</span></div></div><div class="board" id="board">
+    <div class="wb">Whiteboard / Teacher's Desk</div>
+    <div class="grid" id="grid"></div>
+  </div><div class="tips" id="tips"></div></section>
+</div>
+<dialog id="dlg"><div id="dbody"></div></dialog>
+<div id="toast" role="status"></div>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const uid=()=>Math.random().toString(36).slice(2,9);
+const HL={P:'Petite',M:'Medium',T:'Tall'};
+function build(k,R,N){
+  const rs=[...Array(N).keys()].map(j=>'1'+((k==='pairs'||k==='pods')&&j%2===1&&j<N-1?'0':'')).join('');
+  const L=[];
+  if(k==='u'){for(let r=0;r<R;r++)L.push(r===R-1?'1'.repeat(N):N===1?'1':'1'+'.'.repeat(N-2)+'1')}
+  else for(let r=0;r<R;r++){if(k==='pods'&&r>0&&r%2===0)L.push('0'.repeat(rs.length));L.push(rs)}
+  return L;
+}
+const LC={},DK={};
+const key=c=>c.layout+c.rows+'x'+c.cols;
+const lay=c=>LC[key(c)]||(LC[key(c)]=build(c.layout,c.rows,c.cols));
+function desks(c){const k=key(c);if(DK[k])return DK[k];const d=[];lay(c).forEach((r,y)=>[...r].forEach((ch,x)=>ch==='1'&&d.push({r:y,c:x})));return DK[k]=d}
+const newClass=n=>({name:n,rows:5,cols:6,venue:'',layout:'rows',stu:[],seats:{},tog:[],apt:[],gm:'ignore',hh:false});
+let S;try{S=JSON.parse(localStorage.getItem('seating-v1'))}catch(e){}
+if(!S||!S.classes||!S.classes.length)S={cur:0,classes:[newClass('Sec 3A - Mathematics')]};
+let sel=null,q='',drag=null,flip=false;
+const C=()=>{const c=S.classes[S.cur];c.rows=c.rows||5;c.cols=c.cols||6;c.venue=c.venue||'';return c};
+const aptPairs=c=>c.apt.flatMap(([a,b])=>(Array.isArray(b)?b:[b]).map(x=>[a,x]));
+const save=()=>{try{localStorage.setItem('seating-v1',JSON.stringify(S))}catch(e){}};
+const seatOf=id=>{const n=desks(C()).length,s=C().seats;for(const k in s)if(s[k]===id&&+k<n)return +k;return -1};
+const stu=id=>C().stu.find(s=>s.id===id);
+let tt;function toast(m){const t=$('toast');clearTimeout(tt);if(!m){t.style.display='none';return}t.textContent=m;t.style.display='block';tt=setTimeout(()=>t.style.display='none',3500)}
+function commit(){save();render()}
+
+/* ---------- import ---------- */
+function parse(rows){
+  rows=rows.filter(r=>r&&r.some(x=>String(x).trim()));
+  let ni=0,gi=1,hi=2;
+  if(rows.length&&/name/i.test(rows[0].join(' '))){const h=rows.shift().map(String);ni=Math.max(0,h.findIndex(x=>/name/i.test(x)));gi=h.findIndex(x=>/gender|sex/i.test(x));hi=h.findIndex(x=>/height/i.test(x))}
+  const out=[],nums=[];
+  rows.forEach(r=>{
+    const n=String(r[ni]||'').trim();if(!n)return;
+    const g=(gi>=0&&/^[mf]/i.test(String(r[gi]||'').trim()))?String(r[gi]).trim()[0].toUpperCase():'';
+    let h='',raw=hi>=0?String(r[hi]||'').trim():'';
+    const o={id:uid(),n,g,h};
+    if(raw&&!isNaN(parseFloat(raw))){o.cm=parseFloat(raw);nums.push(o.cm)}
+    else if(/^[pmt]/i.test(raw))o.h=raw[0].toUpperCase();
+    out.push(o);
+  });
+  if(nums.length){const s=[...nums].sort((a,b)=>a-b),lo=s[Math.floor(s.length/3)],hi2=s[Math.floor(s.length*2/3)];
+    out.forEach(o=>{if(o.cm!=null){o.h=o.cm<lo?'P':o.cm<hi2?'M':'T';delete o.cm}})}
+  return out;
+}
+function addStudents(list){
+  const c=C(),have=new Set(c.stu.map(s=>s.n.toLowerCase()));
+  const add=list.filter(s=>!have.has(s.n.toLowerCase()));
+  c.stu.push(...add);commit();
+  toast(`Added ${add.length} student${add.length===1?'':'s'}`+(list.length-add.length?` (${list.length-add.length} already on the roster)`:''));
+}
+function readFile(f){
+  if(!f)return;
+  if(!window.XLSX){toast('Spreadsheet reader did not load. Check your connection, or paste names instead.');return}
+  const r=new FileReader();
+  r.onload=e=>{try{const wb=XLSX.read(e.target.result,{type:'array'});
+    addStudents(parse(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''})))}
+    catch(err){toast('Could not read that file. Try saving it as .csv or .xlsx.')}};
+  r.readAsArrayBuffer(f);
+}
+
+/* ---------- seating ---------- */
+function place(id,i){
+  const c=C(),cur=c.seats[i],from=seatOf(id);
+  if(cur===id)return;
+  if(from>=0){if(cur)c.seats[from]=cur;else delete c.seats[from]}
+  c.seats[i]=id;
+}
+function unseat(i){delete C().seats[i];commit()}
+function auto(){
+  const c=C(),D=desks(c),n=D.length;
+  if(!c.stu.length){toast('Add students to the roster first');return}
+  const ids=c.stu.map(s=>s.id).sort(()=>Math.random()-.5).slice(0,n),m=ids.length;
+  const maxR=Math.max(...D.map(d=>d.r));
+  const dist=(a,b)=>Math.hypot(D[a].r-D[b].r,D[a].c-D[b].c);
+  const nb=D.map((_,i)=>D.map((_,j)=>j).filter(j=>j!==i&&dist(i,j)<=1.01));
+  const sc=sl=>{
+    let t=0;const pos={};sl.forEach((id,i)=>pos[id]=i);
+    c.tog.forEach(([a,b])=>{if(pos[a]!=null&&pos[b]!=null)t+=Math.max(0,dist(pos[a],pos[b])-1.5)*20});
+    aptPairs(c).forEach(([a,b])=>{if(pos[a]!=null&&pos[b]!=null)t+=Math.max(0,3-dist(pos[a],pos[b]))*20});
+    sl.forEach((id,i)=>{
+      const s=stu(id);
+      if(c.hh){if(s.h==='P')t+=D[i].r*1.5;if(s.h==='T')t+=(maxR-D[i].r)*1.5}
+      if(c.gm!=='ignore'&&s.g)nb[i].forEach(j=>{if(j<m&&j>i){const o=stu(sl[j]);if(o.g){const same=o.g===s.g;t+=c.gm==='alt'?(same?4:0):(same?0:2)}}});
+    });
+    return t;
+  };
+  let best=ids,bs=sc(best);
+  for(let k=0;k<6000&&m>1;k++){
+    const a=Math.floor(Math.random()*m),b=Math.floor(Math.random()*m);if(a===b)continue;
+    [best[a],best[b]]=[best[b],best[a]];const s=sc(best);
+    if(s<=bs)bs=s;else[best[a],best[b]]=[best[b],best[a]];
+  }
+  c.seats={};best.forEach((id,i)=>c.seats[i]=id);
+  const pos={};best.forEach((id,i)=>pos[id]=i);
+  let bad=0;
+  c.tog.forEach(([a,b])=>{if(pos[a]!=null&&pos[b]!=null&&dist(pos[a],pos[b])>1.5)bad++});
+  aptPairs(c).forEach(([a,b])=>{if(pos[a]!=null&&pos[b]!=null&&dist(pos[a],pos[b])<3)bad++});
+  commit();
+  toast(`Seated ${m} of ${c.stu.length} students`+(bad?`. ${bad} rule${bad>1?'s':''} could not be met.`:'.')+(c.stu.length>n?' Not enough desks for everyone.':''));
+}
+
+/* ---------- render ---------- */
+const chip=s=>`<span class="chip g-${s.g||'N'}${sel===s.id?' sel':''}" draggable="true" data-id="${s.id}" tabindex="0">${esc(s.n)}${s.h?`<small>${HL[s.h]}</small>`:''}</span>`;
+function render(){
+  const c=C(),D=desks(c),L=lay(c);
+  $('cls').innerHTML=S.classes.map((x,i)=>`<option value="${i}"${i===S.cur?' selected':''}>${esc(x.name)}</option>`).join('')+'<option value="new">＋ New class…</option>';
+  $('tpl').value=c.layout;$('rws').value=c.rows;$('colsn').value=c.cols;$('seatn').textContent=D.length+' seats';$('ttl').textContent=c.name;$('vn').textContent=c.venue?'Venue: '+c.venue:'';if(document.activeElement!==$('venue'))$('venue').value=c.venue;
+  $('vt').classList.toggle('on',!flip);$('vs').classList.toggle('on',flip);
+  $('board').classList.toggle('flip',flip);
+  const un=c.stu.filter(s=>seatOf(s.id)<0),f=un.filter(s=>s.n.toLowerCase().includes(q));
+  $('cnt').textContent=`Unassigned: ${un.length} / ${c.stu.length}`;
+  $('gh').textContent=c.stu.some(s=>!s.g)?'Set gender in Rules to colour-code students.':'';
+  $('pool').innerHTML=f.map(chip).join('')||`<p class="mut">${c.stu.length?(un.length?'No matches.':'Everyone has a seat.'):'Your roster is empty. Paste names or upload a file to begin.'}</p>`;
+  const cols=[...L[0]].map((_,j)=>L.every(r=>r[j]==='0')?'24px':'minmax(92px,108px)').join(' ');
+  const rws=L.map(r=>/^0+$/.test(r)?'18px':'68px').join(' ');
+  $('grid').style.gridTemplateColumns=cols;$('grid').style.gridTemplateRows=rws;
+  $('grid').innerHTML=D.map((d,i)=>{
+    const s=stu(c.seats[i]);
+    return `<div class="desk${s?'':' empty'}" data-i="${i}" style="grid-row:${d.r+1};grid-column:${d.c+1}"><span class="no">${i+1}</span>`+
+    (s?`<div class="tag g-${s.g||'N'}${sel===s.id?' sel':''}" draggable="true" data-id="${s.id}" title="${esc(s.n)}"><span class="grip">⋮⋮</span><span class="nm">${esc(s.n)}</span><button class="x" data-un="${i}" aria-label="Unassign ${esc(s.n)}">×</button></div>`:'<span class="hint">Drop here</span>')+'</div>';
+  }).join('');
+  renderTips();
+}
+
+/* ---------- rules dialog ---------- */
+function advice(){
+  const c=C(),D=desks(c),at={},out=[],pos={},seen=new Set();
+  D.forEach((d,i)=>{const s=stu(c.seats[i]);if(s){at[i]=s;pos[s.id]=i}});
+  const dist=(a,b)=>Math.hypot(D[a].r-D[b].r,D[a].c-D[b].c);
+  D.forEach((d,i)=>{const s=at[i];if(!s||s.h!=='T')return;
+    let j=-1;D.forEach((e,k)=>{if(e.c===d.c&&e.r>d.r&&(j<0||e.r<D[j].r))j=k});
+    const b=j>=0&&at[j];
+    if(b&&b.h&&b.h!=='T')out.push(`${s.n} is tall and sits right in front of ${b.n}, who may not see the board. Try moving ${s.n} further back or to the side.`)});
+  c.tog.forEach(([a,b])=>{if(pos[a]!=null&&pos[b]!=null&&dist(pos[a],pos[b])>1.5)out.push(`${stu(a).n} and ${stu(b).n} should sit together but are not next to each other.`)});
+  aptPairs(c).forEach(([a,b])=>{const k=[a,b].sort().join();if(seen.has(k)||pos[a]==null||pos[b]==null||dist(pos[a],pos[b])>=3)return;seen.add(k);out.push(`${stu(a).n} sits close to ${stu(b).n}, who should be kept apart. Try swapping one of them with someone further away.`)});
+  return out;
+}
+function renderTips(){
+  const t=advice(),el=$('tips');
+  el.style.display=t.length?'':'none';
+  el.innerHTML=t.length?`<h4>Suggestions</h4><p class="mut">Based on the current seating, including your manual changes.</p><ul>${t.slice(0,6).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>${t.length>6?`<p class="mut">+${t.length-6} more</p>`:''}`:'';
+}
+function dlg(){
+  const c=C(),opts=c.stu.map(s=>`<option value="${s.id}">${esc(s.n)}</option>`).join('');
+  const nm=id=>esc((stu(id)||{n:'?'}).n);
+  const tl=c.tog.map(([a,b],i)=>`<li><span>${nm(a)} <b>sits with</b> ${nm(b)}</span><button data-rm="tog:${i}" aria-label="Remove rule">×</button></li>`).join('');
+  const al=c.apt.map(([a,b],i)=>`<li><span>${nm(a)} <b>stays away from</b> ${(Array.isArray(b)?b:[b]).map(nm).join(', ')}</span><button data-rm="apt:${i}" aria-label="Remove rule">×</button></li>`).join('');
+  const sg=s=>`<select data-sg="${s.id}"><option value="">–</option><option value="F"${s.g==='F'?' selected':''}>Girl</option><option value="M"${s.g==='M'?' selected':''}>Boy</option></select>`;
+  const sh=s=>`<select data-sh="${s.id}"><option value="">–</option>${Object.entries(HL).map(([k,v])=>`<option value="${k}"${s.h===k?' selected':''}>${v}</option>`).join('')}</select>`;
+  const forms=c.stu.length>1?`
+  <h4>Sit together</h4>
+  <div class="row"><select id="ra">${opts}</select><span>with</span><select id="rb">${opts}</select><button class="btn pri" id="radd">Add</button></div>
+  <h4>Keep apart</h4>
+  <p class="mut">Pick a student, then tick everyone they should not sit near, such as a group of friends.</p>
+  <div class="row"><select id="aa">${opts}</select></div>
+  <div class="chk" id="ab">${c.stu.map(s=>`<label><input type="checkbox" value="${s.id}">${esc(s.n)}</label>`).join('')}</div>
+  <div><button class="btn pri" id="aadd">Add rule</button></div>`:'<p class="mut">Add at least two students to create rules.</p>';
+  $('dbody').innerHTML=`
+  <div class="hd"><h2 style="font-size:20px">Seating rules</h2><button class="btn" data-close>Done</button></div>
+  ${forms}
+  <ul>${tl}${al}</ul>
+  <h4>Auto-assign preferences</h4>
+  <div class="row"><label>Gender&nbsp;<select id="gm" style="flex:none"><option value="ignore">Ignore</option><option value="alt">Alternate</option><option value="grp">Group together</option></select></label>
+  <label><input type="checkbox" id="hh"> Petite students toward the front, tall toward the back</label></div>
+  <h4>Student details</h4>
+  <p class="mut">Gender sets the colour. Height is only used for seating, shown as Petite, Medium or Tall.</p>
+  <div style="max-height:220px;overflow:auto"><table>${c.stu.map(s=>`<tr><td>${esc(s.n)}</td><td>${sg(s)}</td><td>${sh(s)}</td><td><button class="btn" data-del="${s.id}" aria-label="Remove ${esc(s.n)}">×</button></td></tr>`).join('')}</table></div>
+  <div class="row" style="margin-top:6px"><button class="btn" id="ren">Rename class</button><button class="btn" id="delc">Delete class</button></div>`;
+  if($('rb'))$('rb').selectedIndex=1;
+  $('gm').value=c.gm;$('hh').checked=c.hh;
+}
+
+/* ---------- events ---------- */
+$('cls').onchange=e=>{
+  if(e.target.value==='new'){const n=prompt('Class name','');if(n&&n.trim()){S.classes.push(newClass(n.trim()));S.cur=S.classes.length-1}}
+  else S.cur=+e.target.value;
+  sel=null;commit();
+};
+function tryLayout(fn){
+  const c=C(),old=[c.layout,c.rows,c.cols];fn(c);
+  if(desks(c).length>50){[c.layout,c.rows,c.cols]=old;toast('Maximum is 50 seats. Try fewer rows or columns.')}
+  commit();
+}
+$('tpl').onchange=e=>tryLayout(c=>{c.layout=e.target.value});
+const clamp=v=>Math.min(50,Math.max(1,parseInt(v)||1));
+$('rws').onchange=()=>tryLayout(c=>{c.rows=clamp($('rws').value)});
+$('colsn').onchange=()=>tryLayout(c=>{c.cols=clamp($('colsn').value)});
+$('venue').oninput=e=>{const c=C();c.venue=e.target.value.trim();$('vn').textContent=c.venue?'Venue: '+c.venue:'';save()};
+$('vt').onclick=()=>{flip=false;render()};$('vs').onclick=()=>{flip=true;render()};
+$('menu').onclick=()=>$('drawer').classList.toggle('closed');
+$('tp').onclick=()=>{$('tp').classList.add('on');$('tu').classList.remove('on');$('paneP').style.display='';$('paneU').style.display='none'};
+$('tu').onclick=()=>{$('tu').classList.add('on');$('tp').classList.remove('on');$('paneU').style.display='';$('paneP').style.display='none'};
+$('addp').onclick=()=>{const rows=$('paste').value.split('\n').map(l=>l.split(/[,\t;]/).map(x=>x.trim()));if(rows.every(r=>!r[0])){toast('Paste at least one name');return}addStudents(parse(rows));$('paste').value=''};
+$('drop').onclick=()=>$('file').click();
+$('drop').onkeydown=e=>{if(e.key==='Enter'||e.key===' ')$('file').click()};
+$('file').onchange=e=>{readFile(e.target.files[0]);e.target.value=''};
+$('drop').ondragover=e=>{e.preventDefault();$('drop').classList.add('over')};
+$('drop').ondragleave=()=>$('drop').classList.remove('over');
+$('drop').ondrop=e=>{e.preventDefault();$('drop').classList.remove('over');readFile(e.dataTransfer.files[0])};
+$('q').oninput=e=>{q=e.target.value.toLowerCase();render()};
+$('auto').onclick=auto;
+$('clear').onclick=()=>{if(Object.keys(C().seats).length&&confirm('Move everyone back to the unassigned list?')){C().seats={};commit()}};
+$('print').onclick=()=>{flip=false;render();window.print()};
+$('rules').onclick=()=>{dlg();$('dlg').showModal()};
+
+document.addEventListener('click',e=>{
+  const x=e.target.closest('[data-un]');if(x){unseat(+x.dataset.un);return}
+  const d=e.target.closest('.desk'),ch=e.target.closest('.chip'),tg=e.target.closest('.tag');
+  if(ch){sel=sel===ch.dataset.id?null:ch.dataset.id;render();toast(sel?`Now tap a desk for ${stu(sel).n}`:'');return}
+  if(d&&sel){const i=+d.dataset.i;place(sel,i);sel=null;toast('');commit();return}
+  if(tg){sel=sel===tg.dataset.id?null:tg.dataset.id;render();toast(sel?`Tap another desk to move or swap ${stu(sel).n}`:'');return}
+});
+document.addEventListener('dragstart',e=>{
+  const t=e.target.closest&&e.target.closest('[data-id]');if(!t)return;
+  const d=t.closest('.desk');drag={id:t.dataset.id,from:d?+d.dataset.i:null};
+  e.dataTransfer.setData('text/plain',t.dataset.id);e.dataTransfer.effectAllowed='move';
+});
+document.addEventListener('dragend',()=>{drag=null;document.querySelectorAll('.over').forEach(n=>n.classList.remove('over'))});
+document.addEventListener('dragover',e=>{
+  if(!drag)return;const d=e.target.closest('.desk');
+  if(d||e.target.closest('#pool')){e.preventDefault();document.querySelectorAll('.desk.over').forEach(n=>n!==d&&n.classList.remove('over'));d&&d.classList.add('over')}
+});
+document.addEventListener('drop',e=>{
+  if(!drag)return;const d=e.target.closest('.desk');
+  if(d){e.preventDefault();place(drag.id,+d.dataset.i);sel=null;commit()}
+  else if(e.target.closest('#pool')&&drag.from!=null){e.preventDefault();delete C().seats[drag.from];commit()}
+  drag=null;
+});
+$('dlg').addEventListener('click',e=>{
+  const c=C(),t=e.target;
+  if(t===$('dlg')||t.closest('[data-close]')){$('dlg').close();return}
+  if(t.id==='radd'){const a=$('ra').value,b=$('rb').value;if(a===b){toast('Pick two different students');return}c.tog.push([a,b]);save();render();dlg()}
+  if(t.id==='aadd'){const a=$('aa').value,bs=[...document.querySelectorAll('#ab input:checked')].map(x=>x.value).filter(x=>x!==a);if(!bs.length){toast('Tick at least one student to keep apart');return}c.apt.push([a,bs]);save();render();dlg()}
+  const rm=t.closest('[data-rm]');if(rm){const[k,i]=rm.dataset.rm.split(':');c[k].splice(+i,1);save();render();dlg()}
+  const dl=t.closest('[data-del]');if(dl){const id=dl.dataset.del;c.stu=c.stu.filter(s=>s.id!==id);c.tog=c.tog.filter(p=>!p.includes(id));c.apt=c.apt.filter(p=>p[0]!==id).map(([a,b])=>[a,(Array.isArray(b)?b:[b]).filter(x=>x!==id)]).filter(p=>p[1].length);for(const k in c.seats)if(c.seats[k]===id)delete c.seats[k];save();render();dlg()}
+  if(t.id==='ren'){const n=prompt('Class name',c.name);if(n&&n.trim()){c.name=n.trim();save();render()}}
+  if(t.id==='delc'&&confirm(`Delete "${c.name}"? This cannot be undone.`)){S.classes.splice(S.cur,1);if(!S.classes.length)S.classes.push(newClass('New class'));S.cur=0;$('dlg').close();commit()}
+});
+$('dlg').addEventListener('change',e=>{
+  const c=C(),t=e.target;
+  if(t.id==='gm')c.gm=t.value;
+  if(t.id==='hh')c.hh=t.checked;
+  if(t.dataset.sg!==undefined){stu(t.dataset.sg).g=t.value;render()}
+  if(t.dataset.sh!==undefined){stu(t.dataset.sh).h=t.value;render()}
+  save();
+});
+if(innerWidth<=800)$('drawer').classList.add('closed');
+render();
+</script>
+</body>
+</html>
