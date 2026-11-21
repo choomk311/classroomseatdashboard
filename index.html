@@ -56,7 +56,8 @@ input[type=search]{width:100%;border:1px solid var(--line);border-radius:10px;pa
 .no{position:absolute;top:4px;left:8px;font-size:10px;color:var(--slate);font-variant-numeric:tabular-nums}
 .hint{font-size:11px;color:#9A9488}
 .tag{border-radius:8px;width:100%;padding:5px 6px;margin-top:8px;font-size:13px}
-.tag .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tag .nm{flex:1;min-width:0;overflow-wrap:anywhere;line-height:1.25}
+.chip .x{opacity:.55;margin-left:2px}.chip:hover .x,.chip .x:focus-visible{opacity:1}
 .grip{color:#8FA89D;letter-spacing:-2px;font-size:11px}
 .x{border:0;background:none;color:inherit;cursor:pointer;opacity:0;font-size:16px;line-height:1;padding:0 2px}
 .tag:hover .x,.x:focus-visible{opacity:.8}
@@ -104,6 +105,7 @@ td select{border:1px solid var(--line);border-radius:6px;padding:3px;background:
   <button class="btn" id="rules">Rules</button>
   <button class="btn pri" id="auto">Auto-assign</button>
   <button class="btn" id="clear">Clear seats</button>
+  <button class="btn" id="delcls">Delete class</button>
   <button class="btn" id="print">Export / Print PDF</button>
 </header>
 <div class="main">
@@ -117,7 +119,7 @@ td select{border:1px solid var(--line);border-radius:6px;padding:3px;background:
       <div class="drop" id="drop" tabindex="0">Drop a .xlsx or .csv here<br>or click to browse<p class="mut" style="margin-top:6px">Columns: name, gender, height (cm). Only name is required.</p></div>
       <input type="file" id="file" accept=".xlsx,.xls,.csv" hidden>
     </div>
-    <div class="hd"><h3 id="cnt" style="font-size:15px"></h3></div>
+    <div class="hd"><h3 id="cnt" style="font-size:15px"></h3><button class="btn" id="clr" style="padding:3px 8px;font-size:12px">Remove all</button></div>
     <p class="mut" id="gh"></p>
     <input type="search" id="q" placeholder="Search students" aria-label="Search students">
     <div id="pool"></div>
@@ -234,7 +236,7 @@ function auto(){
 }
 
 /* ---------- render ---------- */
-const chip=s=>`<span class="chip g-${s.g||'N'}${sel===s.id?' sel':''}" draggable="true" data-id="${s.id}" tabindex="0">${esc(s.n)}${s.h?`<small>${HL[s.h]}</small>`:''}</span>`;
+const chip=s=>`<span class="chip g-${s.g||'N'}${sel===s.id?' sel':''}" draggable="true" data-id="${s.id}" tabindex="0">${esc(s.n)}${s.h?`<small>${HL[s.h]}</small>`:''}<button class="x" data-del="${s.id}" aria-label="Delete ${esc(s.n)}" title="Delete student">×</button></span>`;
 function render(){
   const c=C(),D=desks(c),L=lay(c);
   $('cls').innerHTML=S.classes.map((x,i)=>`<option value="${i}"${i===S.cur?' selected':''}>${esc(x.name)}</option>`).join('')+'<option value="new">＋ New class…</option>';
@@ -245,8 +247,8 @@ function render(){
   $('cnt').textContent=`Unassigned: ${un.length} / ${c.stu.length}`;
   $('gh').textContent=c.stu.some(s=>!s.g)?'Set gender in Rules to colour-code students.':'';
   $('pool').innerHTML=f.map(chip).join('')||`<p class="mut">${c.stu.length?(un.length?'No matches.':'Everyone has a seat.'):'Your roster is empty. Paste names or upload a file to begin.'}</p>`;
-  const cols=[...L[0]].map((_,j)=>L.every(r=>r[j]==='0')?'24px':'minmax(92px,108px)').join(' ');
-  const rws=L.map(r=>/^0+$/.test(r)?'18px':'68px').join(' ');
+  const cols=[...L[0]].map((_,j)=>L.every(r=>r[j]==='0')?'24px':'minmax(108px,140px)').join(' ');
+  const rws=L.map(r=>/^0+$/.test(r)?'18px':'minmax(68px,auto)').join(' ');
   $('grid').style.gridTemplateColumns=cols;$('grid').style.gridTemplateRows=rws;
   $('grid').innerHTML=D.map((d,i)=>{
     const s=stu(c.seats[i]);
@@ -304,6 +306,18 @@ function dlg(){
   $('gm').value=c.gm;$('hh').checked=c.hh;
 }
 
+function delStudent(id){
+  const c=C(),n=(stu(id)||{}).n;
+  c.stu=c.stu.filter(s=>s.id!==id);c.tog=c.tog.filter(p=>!p.includes(id));
+  c.apt=c.apt.filter(p=>p[0]!==id).map(([a,b])=>[a,(Array.isArray(b)?b:[b]).filter(x=>x!==id)]).filter(p=>p[1].length);
+  for(const k in c.seats)if(c.seats[k]===id)delete c.seats[k];
+  if(sel===id)sel=null;commit();toast(`Removed ${n}`);
+}
+function delClass(){
+  const c=C();if(!confirm(`Delete "${c.name}" and its seating plan? This cannot be undone.`))return;
+  S.classes.splice(S.cur,1);if(!S.classes.length)S.classes.push(newClass('New class'));
+  S.cur=0;sel=null;commit();toast('Class deleted');
+}
 /* ---------- events ---------- */
 $('cls').onchange=e=>{
   if(e.target.value==='new'){const n=prompt('Class name','');if(n&&n.trim()){S.classes.push(newClass(n.trim()));S.cur=S.classes.length-1}}
@@ -333,12 +347,15 @@ $('drop').ondragleave=()=>$('drop').classList.remove('over');
 $('drop').ondrop=e=>{e.preventDefault();$('drop').classList.remove('over');readFile(e.dataTransfer.files[0])};
 $('q').oninput=e=>{q=e.target.value.toLowerCase();render()};
 $('auto').onclick=auto;
+$('delcls').onclick=delClass;
+$('clr').onclick=()=>{const c=C();if(c.stu.length&&confirm(`Remove all ${c.stu.length} students from this class?`)){c.stu=[];c.seats={};c.tog=[];c.apt=[];sel=null;commit()}};
 $('clear').onclick=()=>{if(Object.keys(C().seats).length&&confirm('Move everyone back to the unassigned list?')){C().seats={};commit()}};
 $('print').onclick=()=>{flip=false;render();window.print()};
 $('rules').onclick=()=>{dlg();$('dlg').showModal()};
 
 document.addEventListener('click',e=>{
   const x=e.target.closest('[data-un]');if(x){unseat(+x.dataset.un);return}
+  const dl=e.target.closest('.chip [data-del]');if(dl){delStudent(dl.dataset.del);return}
   const d=e.target.closest('.desk'),ch=e.target.closest('.chip'),tg=e.target.closest('.tag');
   if(ch){sel=sel===ch.dataset.id?null:ch.dataset.id;render();toast(sel?`Now tap a desk for ${stu(sel).n}`:'');return}
   if(d&&sel){const i=+d.dataset.i;place(sel,i);sel=null;toast('');commit();return}
@@ -368,7 +385,7 @@ $('dlg').addEventListener('click',e=>{
   const rm=t.closest('[data-rm]');if(rm){const[k,i]=rm.dataset.rm.split(':');c[k].splice(+i,1);save();render();dlg()}
   const dl=t.closest('[data-del]');if(dl){const id=dl.dataset.del;c.stu=c.stu.filter(s=>s.id!==id);c.tog=c.tog.filter(p=>!p.includes(id));c.apt=c.apt.filter(p=>p[0]!==id).map(([a,b])=>[a,(Array.isArray(b)?b:[b]).filter(x=>x!==id)]).filter(p=>p[1].length);for(const k in c.seats)if(c.seats[k]===id)delete c.seats[k];save();render();dlg()}
   if(t.id==='ren'){const n=prompt('Class name',c.name);if(n&&n.trim()){c.name=n.trim();save();render()}}
-  if(t.id==='delc'&&confirm(`Delete "${c.name}"? This cannot be undone.`)){S.classes.splice(S.cur,1);if(!S.classes.length)S.classes.push(newClass('New class'));S.cur=0;$('dlg').close();commit()}
+  if(t.id==='delc'){$('dlg').close();delClass()}
 });
 $('dlg').addEventListener('change',e=>{
   const c=C(),t=e.target;
